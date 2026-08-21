@@ -27,7 +27,9 @@
   let live = false;
   let stage = 'top'; // 'top' | 'fall' | 'bottom'
 
-  // head position: transform-origin sits on the head, so x/y IS the head
+  // Head position — the centre of the head dot, and the point the worm is
+  // steered by. The element box is drawn shifted by -R (and the mirror pivots
+  // about the same point), so x/y stays the head wherever it is facing.
   let x = 0;
   let y = 0;
   let panel = null;
@@ -69,8 +71,18 @@
     });
   }
 
-  function schedule(min, max) {
-    waitTimer = setTimeout(spawn, rnd(min, max));
+  function schedule(min, max, avoid = null) {
+    waitTimer = setTimeout(() => spawn(avoid), rnd(min, max));
+  }
+
+  // Poke it and it is gone, turning up shortly afterwards on another panel.
+  function poke() {
+    if (!live) return;
+    const from = panel;
+    live = false;
+    cancelAnimationFrame(raf);
+    clearTimeout(waitTimer);
+    schedule(500, 1400, from);
   }
 
   // Panels whose top border is actually on screen — a worm nobody can see is a
@@ -83,26 +95,30 @@
     });
   }
 
-  function spawn() {
+  function spawn(avoid = null) {
     // rAF is paused in a hidden tab; don't park a frozen worm on screen.
-    if (document.hidden) return schedule(4000, 9000);
+    if (document.hidden) return schedule(4000, 9000, avoid);
 
-    const pool = candidates();
-    if (!pool.length) return schedule(6000, 15000);
+    let pool = candidates();
+    if (!pool.length) return schedule(6000, 15000, avoid);
+    // a poked worm reappears elsewhere, not on the panel it just left
+    if (avoid && pool.length > 1) pool = pool.filter((el) => el !== avoid);
 
     panel = pool[Math.floor(Math.random() * pool.length)]; // equal odds per panel
     dir = Math.random() < 0.5 ? 1 : -1;
     stride = rnd(11, 15);
     cadence = rnd(0.5, 0.75);
     stage = 'top';
-    travelled = 0;
+    // start a whole body in, so the worm sits entirely on the panel with its
+    // tail flush against the edge it sets off from
+    travelled = LEN + R;
     p = 0;
     liftScale = 1;
     vy = 0;
 
     const r = panel.getBoundingClientRect();
-    x = dir > 0 ? r.left : r.right;
-    y = r.top - R;
+    x = dir > 0 ? r.left + travelled : r.right - travelled;
+    y = r.top;
 
     live = true;
     last = performance.now();
@@ -131,7 +147,7 @@
         liftScale = 0.45;
       } else {
         advance(dt);
-        y = r.top - R;
+        y = r.top;
         x = dir > 0 ? r.left + travelled : r.right - travelled;
         if (travelled >= r.width) {
           stage = 'fall';
@@ -143,7 +159,7 @@
       advance(dt, 0.6);
       vy = Math.min(vy + 620 * dt, 430);
       y += vy * dt;
-      const floor = window.innerHeight - FLOOR_GAP - R;
+      const floor = window.innerHeight - FLOOR_GAP;
       if (y >= floor) {
         y = floor;
         stage = 'bottom';
@@ -154,7 +170,7 @@
     } else {
       advance(dt);
       x = anchorX + dir * travelled;
-      y = window.innerHeight - FLOOR_GAP - R;
+      y = window.innerHeight - FLOOR_GAP;
       if (x < -LEN - 20 || x > window.innerWidth + LEN + 20) {
         live = false;
         schedule(20000, 70000);
@@ -182,7 +198,12 @@
 </script>
 
 {#if live}
-  <div class="worm" aria-hidden="true" style="transform: translate({x}px, {y}px) {orient}">
+  <div
+    class="worm"
+    aria-hidden="true"
+    on:pointerdown={poke}
+    style="transform: translate({x - R}px, {y - R}px) {orient}"
+  >
     {#each segs as s, i}
       <span class:head={i === 0} style="transform: translate({s.dx}px, {-s.dy}px)"></span>
     {/each}
@@ -204,12 +225,22 @@
     will-change: transform;
   }
   .worm span {
+    position: relative;
     width: 6px;
     height: 6px;
     border-radius: 50%;
     background: var(--muted);
     opacity: 0.62;
     flex: none;
+    /* the wrapper stays click-through; only the body itself is pokeable */
+    pointer-events: auto;
+  }
+  /* a small halo so a 6px dot is actually hittable, without touching layout */
+  .worm span::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
   }
   .worm span.head {
     background: var(--accent);

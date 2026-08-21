@@ -2,8 +2,10 @@
   import { scan } from './lib/scanner.js';
   import ObjectList from './lib/ObjectList.svelte';
   import LiveProbe from './lib/LiveProbe.svelte';
+  import Worm from './lib/Worm.svelte';
 
   let mode = 'live'; // 'live' | 'odata'
+  let shellEl;
 
   let url = '';
   let useProxy = true;
@@ -79,7 +81,9 @@
 
 <svelte:window on:keydown={onWindowKey} />
 
-<div class="shell">
+<Worm container={shellEl} />
+
+<div class="shell" bind:this={shellEl}>
   <header class="bar">
     <span class="dot" />
     <h1 class="cmd">

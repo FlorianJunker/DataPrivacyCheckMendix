@@ -22,7 +22,7 @@ Mendix exposes data in two very different ways, and a privacy check needs both a
 
 ---
 
-## Getting started
+## How to start the App locally
 
 ```bash
 npm install

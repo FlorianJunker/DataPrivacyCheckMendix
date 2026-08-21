@@ -5,7 +5,7 @@
   // exactly which objects the current user (e.g. anonymous) can actually read
   // per entity — the real question for a data-privacy check.
 
-  let entitiesText = 'Administration.Account';
+  let entitiesText = ''; // empty = auto-discover every entity via mx.meta.getMap
   let amount = 100;
   let offset = 0;
   let copied = false;
@@ -38,13 +38,25 @@
     }
     entities = entities.slice().sort();
 
+    // Same palette as the generator UI, inlined so the panel is standalone.
+    var C = {
+      bg: '#0a0d12',
+      surface: '#0f131a',
+      surface2: '#151b24',
+      border: '#222b37',
+      text: '#dde5ee',
+      muted: '#7d8b9c',
+      faint: '#55616f',
+      accent: '#56d4dd'
+    };
+    var MONO = 'ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
     var COLORS = {
-      READABLE: '#3fb950',
-      'empty/constrained': '#d29922',
-      denied: '#f85149',
-      timeout: '#8b98a5',
-      error: '#f85149',
-      '…': '#8b98a5'
+      READABLE: '#4ec96f',
+      'empty/constrained': '#e0b341',
+      denied: '#ff6b62',
+      timeout: C.faint,
+      error: '#ff6b62',
+      '...': C.faint
     };
 
     var old = document.getElementById('__dp_probe_panel');
@@ -53,22 +65,26 @@
     var panel = document.createElement('div');
     panel.id = '__dp_probe_panel';
     panel.style.cssText =
-      'position:fixed;top:12px;right:12px;width:460px;max-height:92vh;overflow:auto;' +
-      'z-index:2147483647;background:#1a2029;color:#e6edf3;' +
-      'font:13px system-ui,-apple-system,Segoe UI,sans-serif;border:1px solid #2e3946;' +
-      'border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.55)';
+      'position:fixed;top:12px;right:12px;width:470px;max-height:92vh;overflow:auto;' +
+      'z-index:2147483647;background:' + C.surface + ';color:' + C.text + ';' +
+      'font:12px/1.6 ' + MONO + ';border:1px solid ' + C.border + ';' +
+      'border-radius:3px;box-shadow:0 12px 40px rgba(0,0,0,.6)';
 
     var head = document.createElement('div');
     head.style.cssText =
-      'display:flex;justify-content:space-between;align-items:center;padding:10px 12px;' +
-      'border-bottom:1px solid #2e3946;position:sticky;top:0;background:#232b36;z-index:1';
-    var title = document.createElement('strong');
-    title.textContent = 'Data Privacy Probe';
+      'display:flex;justify-content:space-between;align-items:center;padding:7px 12px;' +
+      'border-bottom:1px solid ' + C.border + ';position:sticky;top:0;background:' +
+      C.surface2 + ';z-index:2';
+    var title = document.createElement('span');
+    title.style.cssText =
+      'font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:' + C.muted;
+    title.textContent = '▮ dataprivacy-probe';
     head.appendChild(title);
     var close = document.createElement('button');
     close.textContent = '×';
     close.style.cssText =
-      'background:none;border:none;color:#8b98a5;font-size:20px;line-height:1;cursor:pointer';
+      'background:none;border:none;color:' + C.faint +
+      ';font:16px/1 ' + MONO + ';cursor:pointer;padding:0 2px';
     close.onclick = function () {
       panel.remove();
     };
@@ -78,22 +94,26 @@
     var bar = document.createElement('div');
     bar.style.cssText =
       'display:flex;justify-content:space-between;align-items:center;gap:8px;' +
-      'padding:8px 12px;border-bottom:1px solid #2e3946;position:sticky;top:41px;background:#1a2029;z-index:1';
+      'padding:6px 12px;border-bottom:1px solid ' + C.border +
+      ';position:sticky;top:34px;background:' + C.surface + ';z-index:1;font-size:11px';
     var statusLine = document.createElement('span');
-    statusLine.style.cssText = 'color:#8b98a5';
-    statusLine.textContent = 'Discovered ' + entities.length + ' entities — probing…';
+    statusLine.style.cssText = 'color:' + C.muted;
+    statusLine.textContent = 'discovered ' + entities.length + ' entities — probing...';
     var filterLbl = document.createElement('label');
-    filterLbl.style.cssText = 'color:#8b98a5;display:flex;gap:5px;align-items:center;cursor:pointer;white-space:nowrap';
+    filterLbl.style.cssText =
+      'color:' + C.muted +
+      ';display:flex;gap:5px;align-items:center;cursor:pointer;white-space:nowrap';
     var filterChk = document.createElement('input');
     filterChk.type = 'checkbox';
+    filterChk.style.cssText = 'accent-color:' + C.accent + ';margin:0';
     filterLbl.appendChild(filterChk);
-    filterLbl.appendChild(document.createTextNode('readable only'));
+    filterLbl.appendChild(document.createTextNode('--readable-only'));
     bar.appendChild(statusLine);
     bar.appendChild(filterLbl);
     panel.appendChild(bar);
 
     var body = document.createElement('div');
-    body.style.cssText = 'padding:6px 12px 12px';
+    body.style.cssText = 'padding:8px 12px 12px';
     panel.appendChild(body);
     document.body.appendChild(panel);
 
@@ -111,32 +131,41 @@
     }
     filterChk.onchange = applyFilter;
 
-    function esc(s) {
-      return String(s).replace(/[&<>]/g, function (c) {
-        return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c];
-      });
-    }
-
     // --- build a row per entity ---
     entities.forEach(function (entity) {
       var card = document.createElement('div');
       card.style.cssText =
-        'border:1px solid #2e3946;border-radius:8px;margin:8px 0;overflow:hidden';
+        'border:1px solid ' + C.border + ';border-radius:3px;margin:5px 0;overflow:hidden';
 
       var ch = document.createElement('div');
       ch.style.cssText =
-        'padding:8px 10px;background:#232b36;cursor:pointer;display:flex;' +
-        'justify-content:space-between;gap:8px;align-items:center';
+        'padding:6px 9px;cursor:pointer;display:flex;justify-content:space-between;' +
+        'gap:8px;align-items:center';
+      ch.onmouseenter = function () {
+        ch.style.background = C.surface2;
+      };
+      ch.onmouseleave = function () {
+        ch.style.background = '';
+      };
       var left = document.createElement('span');
-      left.style.cssText = 'font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
-      left.textContent = entity;
+      left.style.cssText =
+        'display:flex;gap:6px;min-width:0;align-items:center';
+      var caret = document.createElement('span');
+      caret.style.cssText = 'color:' + C.faint + ';font-size:10px;flex:none';
+      caret.textContent = '▸';
+      var nameEl = document.createElement('span');
+      nameEl.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+      nameEl.textContent = entity;
+      left.appendChild(caret);
+      left.appendChild(nameEl);
       var right = document.createElement('span');
-      right.style.cssText = 'display:flex;gap:8px;align-items:center;white-space:nowrap';
+      right.style.cssText = 'display:flex;gap:8px;align-items:center;white-space:nowrap;flex:none';
       var countEl = document.createElement('span');
-      countEl.style.cssText = 'color:#4f9cf9;font-variant-numeric:tabular-nums';
+      countEl.style.cssText =
+        'color:' + C.accent + ';font-variant-numeric:tabular-nums';
       var badge = document.createElement('span');
-      badge.style.cssText = 'font-size:11px;color:#8b98a5';
-      badge.textContent = '…';
+      badge.style.cssText = 'font-size:10px;letter-spacing:.08em;color:' + C.faint;
+      badge.textContent = '...';
       right.appendChild(countEl);
       right.appendChild(badge);
       ch.appendChild(left);
@@ -144,25 +173,34 @@
 
       var det = document.createElement('pre');
       det.style.cssText =
-        'display:none;margin:0;padding:8px 10px;font-family:monospace;font-size:12px;' +
-        'white-space:pre-wrap;word-break:break-word;max-height:340px;overflow:auto';
+        'display:none;margin:0;padding:8px 9px;font:11px/1.5 ' + MONO + ';' +
+        'background:' + C.bg + ';border-top:1px solid ' + C.border + ';color:' + C.muted +
+        ';white-space:pre-wrap;word-break:break-word;max-height:340px;overflow:auto';
 
       ch.onclick = function () {
         var showing = det.style.display !== 'none';
         det.style.display = showing ? 'none' : 'block';
+        caret.textContent = showing ? '▸' : '▾';
         if (!showing && !rows[entity].loaded) loadObjects(entity);
       };
 
       card.appendChild(ch);
       card.appendChild(det);
       body.appendChild(card);
-      rows[entity] = { card: card, badge: badge, countEl: countEl, det: det, loaded: false, status: '…' };
+      rows[entity] = {
+        card: card,
+        badge: badge,
+        countEl: countEl,
+        det: det,
+        loaded: false,
+        status: '...'
+      };
     });
 
     // --- click-to-load the actual objects of one entity ---
     function loadObjects(entity) {
       var r = rows[entity];
-      r.det.textContent = 'loading…';
+      r.det.textContent = 'loading...';
       mx.data.get({
         xpath: '//' + entity,
         count: true,
@@ -195,10 +233,16 @@
       var r = rows[entity];
       r.status = status;
       r.badge.textContent = status + (msg ? ' — ' + msg : '');
-      r.badge.style.color = COLORS[status] || '#8b98a5';
+      r.badge.style.color = COLORS[status] || C.faint;
       r.countEl.textContent = count != null ? count + ' obj' : '';
       if (status === 'READABLE') readableCount++;
-      window.__scan.push({ entity: entity, status: status, count: count != null ? count : '', attrs: attrs || '', msg: msg || '' });
+      window.__scan.push({
+        entity: entity,
+        status: status,
+        count: count != null ? count : '',
+        attrs: attrs || '',
+        msg: msg || ''
+      });
     }
 
     function probeNext() {
@@ -206,12 +250,15 @@
         statusLine.textContent =
           readableCount + ' readable of ' + entities.length + ' entities';
         applyFilter();
-        console.log('[Data Privacy Probe] done. Full scan in window.__scan; objects in window.__dp_results');
+        console.log(
+          '[dataprivacy-probe] done. Full scan in window.__scan; objects in window.__dp_results'
+        );
         console.table(window.__scan);
         return;
       }
       var entity = entities[i++];
-      statusLine.textContent = 'Probing ' + i + '/' + entities.length + '…  (' + readableCount + ' readable)';
+      statusLine.textContent =
+        'probing ' + i + '/' + entities.length + '  (' + readableCount + ' readable)';
       var done = false;
       var to = setTimeout(function () {
         if (done) return;
@@ -253,7 +300,6 @@
       }
     }
     probeNext();
-    void esc; // reserved for future html rendering
   }
 
   $: entities = entitiesText
@@ -277,127 +323,93 @@
   }
 </script>
 
-<section class="controls">
-  <label class="fld">
-    <span>Entities <small>(leave empty to auto-discover ALL via mx.meta.getMap; or list specific ones)</small></span>
-    <textarea
-      rows="3"
-      bind:value={entitiesText}
-      spellcheck="false"
-      placeholder="(empty = discover every entity)&#10;Administration.Account&#10;Sales.Order"
-    ></textarea>
-  </label>
-  <div class="opts">
-    <label>
-      Amount (page size / max)
-      <input class="num" type="number" min="1" max="10000" bind:value={amount} />
+<section class="panel">
+  <div class="panel__head">
+    <span class="panel__title">entities</span>
+    <span class="head-note">{entities.length ? `${entities.length} listed` : 'auto-discover all'}</span>
+  </div>
+  <div class="panel__body stack">
+    <label class="fld">
+      <span class="hint">
+        leave empty to discover every entity via <code>mx.meta.getMap()</code>
+      </span>
+      <textarea
+        class="textarea"
+        rows="3"
+        bind:value={entitiesText}
+        spellcheck="false"
+        placeholder="(empty = discover every entity)&#10;Administration.Account&#10;Sales.Order"
+      ></textarea>
     </label>
-    <label>
-      Offset
-      <input class="num" type="number" min="0" bind:value={offset} />
-    </label>
-    <span class="count-hint">
-      {entities.length ? `${entities.length} listed` : 'auto-discover all'}
-    </span>
+    <div class="opts">
+      <label>
+        <span class="label">amount</span>
+        <input class="num" type="number" min="1" max="10000" bind:value={amount} />
+      </label>
+      <label>
+        <span class="label">offset</span>
+        <input class="num" type="number" min="0" bind:value={offset} />
+      </label>
+    </div>
   </div>
 </section>
 
-<section class="howto">
-  <h3>How to run it</h3>
-  <ol>
-    <li>Open the running Mendix app in a browser tab (log in as the user whose access you want to test — or leave anonymous).</li>
-    <li>Open DevTools console (<code>F12</code>), paste the script below, press Enter — or click the dragged <strong>bookmarklet</strong>.</li>
-    <li>It discovers every entity, probes each for readability + exact count, and lists them. <strong>Click any entity</strong> to load and view its objects.</li>
-  </ol>
-  <p class="note">
-    Uses your <code>mx.meta.getMap()</code> + <code>mx.data.get</code> pattern, so it only sees what the current session may read. Full scan lands in <code>window.__scan</code>; loaded objects in <code>window.__dp_results</code>.
-  </p>
+<section class="panel">
+  <div class="panel__head"><span class="panel__title">how to run it</span></div>
+  <div class="panel__body stack">
+    <ol class="list list--num">
+      <li>
+        Open the running Mendix app in a browser tab — logged in as the user whose
+        access you want to test, or left anonymous.
+      </li>
+      <li>
+        Open the DevTools console (<kbd>F12</kbd>), paste the script below, hit
+        <kbd>Enter</kbd> — or click the dragged bookmarklet.
+      </li>
+      <li>
+        It discovers every entity, probes each for readability + exact count, then
+        lists them. <strong>Click an entity</strong> to load and view its objects.
+      </li>
+    </ol>
+    <p class="note">
+      Only sees what the current session may read. Full scan lands in
+      <code>window.__scan</code>, loaded objects in <code>window.__dp_results</code>.
+    </p>
+  </div>
 </section>
 
-<div class="actions">
-  <button class="go" on:click={copyScript}>{copied ? 'Copied ✓' : 'Copy console script'}</button>
-  <a class="bm" href={bookmarklet} on:click|preventDefault title="Drag me to your bookmarks bar">▣ Data Privacy Probe (drag to bookmarks)</a>
-</div>
-
-<pre class="script">{script}</pre>
+<section class="panel">
+  <div class="panel__head">
+    <span class="panel__title">payload</span>
+    <span class="head-note">{(script.length / 1024).toFixed(1)} kB</span>
+    <div class="head-actions">
+      <button class="btn btn--primary" on:click={copyScript}>
+        {copied ? 'copied ✓' : 'copy script'}
+      </button>
+      <a
+        class="btn btn--ghost bm"
+        href={bookmarklet}
+        on:click|preventDefault
+        title="Drag me to your bookmarks bar"
+      >
+        ▣ drag to bookmarks
+      </a>
+    </div>
+  </div>
+  <div class="panel__body">
+    <pre class="code-block script">{script}</pre>
+  </div>
+</section>
 
 <style>
-  .controls,
-  .howto {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1rem;
-    margin-bottom: 1rem;
-  }
-  .fld { display: flex; flex-direction: column; gap: 0.4rem; }
-  .fld span small { color: var(--muted); font-weight: 400; }
-  textarea {
-    background: var(--bg);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.6rem 0.75rem;
-    font-family: var(--mono);
-    font-size: 0.9rem;
-    resize: vertical;
-  }
-  textarea:focus { outline: none; border-color: var(--accent); }
-  .opts {
-    display: flex;
-    gap: 1.5rem;
-    align-items: center;
-    margin-top: 0.75rem;
-    color: var(--muted);
-    font-size: 0.85rem;
-    flex-wrap: wrap;
-  }
-  .opts label { display: inline-flex; align-items: center; gap: 0.4rem; }
-  .num {
-    width: 6rem;
-    background: var(--bg);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 0.25rem 0.4rem;
-  }
-  .count-hint { margin-left: auto; }
-  .howto h3 { margin: 0 0 0.5rem; }
-  .howto ol { margin: 0 0 0.5rem; padding-left: 1.2rem; }
-  .howto li { margin-bottom: 0.35rem; }
-  .note { color: var(--muted); font-size: 0.83rem; margin: 0.25rem 0 0; }
-  .actions { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; }
-  .go {
-    background: var(--accent-2);
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    padding: 0.55rem 1.2rem;
-    font-weight: 600;
-  }
-  .bm {
-    display: inline-block;
-    border: 1px dashed var(--border);
-    border-radius: 8px;
-    padding: 0.5rem 0.9rem;
-    color: var(--accent);
-    text-decoration: none;
-    font-size: 0.85rem;
-    cursor: grab;
-  }
-  .script {
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    background: var(--panel-2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.75rem;
-    max-height: 260px;
-    overflow: auto;
-    margin: 0;
-    white-space: pre-wrap;
-    word-break: break-all;
-    color: var(--muted);
-  }
-  code { font-family: var(--mono); background: var(--panel-2); padding: 0.05rem 0.35rem; border-radius: 4px; font-size: 0.85em; }
+  .stack { display: flex; flex-direction: column; gap: 0.75rem; }
+  .fld { display: flex; flex-direction: column; gap: 0.35rem; }
+  .hint { color: var(--faint); font-size: 11px; }
+
+  .head-note { font-size: 10px; color: var(--faint); }
+  .head-actions { margin-left: auto; display: flex; gap: 0.4rem; align-items: center; }
+  .head-actions .btn { padding: 0.25rem 0.7rem; font-size: 11px; }
+  .bm { border-style: dashed; cursor: grab; }
+
+  .script { max-height: 260px; }
 </style>
